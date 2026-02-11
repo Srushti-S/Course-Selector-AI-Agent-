@@ -1,0 +1,9 @@
+{
+  "name": "Alice Johnson",
+  "major": "Computer Science",
+  "year": "Sophomore",
+  "completedCourses": ["CS101", "MATH201", "STAT101"],
+  "interests": ["Machine Learning", "Web Development"],
+  "careerGoals": "Become a full-stack developer specializing in AI applications",
+  "creditHoursPerSemester": 15
+}
