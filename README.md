@@ -72,8 +72,3 @@ backend/           FastAPI + LangChain
 
 **Frontend:** React 18, CSS custom properties (dark theme), DM Sans + JetBrains Mono  
 **Backend:** Python 3.10+, FastAPI, Pydantic v2, LangChain, OpenAI  
-**Design:** Dark editorial UI, amber accent system, responsive grid layout
-
-## License
-
-MIT
