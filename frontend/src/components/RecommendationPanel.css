@@ -1,0 +1,82 @@
+.recommendation-panel { width: 100%; }
+.panel-header { margin-bottom: 24px; }
+.panel-header h2 {
+  font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em;
+  color: var(--text-primary); margin-bottom: 4px;
+}
+.panel-header .subtitle { color: var(--text-secondary); font-size: 0.88rem; }
+.ai-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--accent-dim); color: var(--accent);
+  padding: 4px 12px; border-radius: var(--radius-pill); font-size: 0.72rem;
+  font-weight: 700; margin-top: 8px; border: 1px solid var(--accent-mid);
+}
+
+.empty-recommendations { text-align: center; padding: 72px 20px; }
+.empty-icon { font-size: 2.5rem; margin-bottom: 14px; opacity: .35; }
+.empty-recommendations h3 { font-size: 1.1rem; color: var(--text-primary); margin-bottom: 6px; }
+.empty-recommendations p { color: var(--text-secondary); max-width: 400px; margin: 0 auto; font-size: 0.88rem; }
+
+.recommendations-grid { display: flex; flex-direction: column; gap: 12px; }
+
+.recommendation-card {
+  background: var(--bg-secondary); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 20px; transition: all .15s;
+}
+.recommendation-card:hover { border-color: var(--border-hover); box-shadow: var(--shadow); }
+.recommendation-card.expanded { border-color: var(--accent-mid); }
+
+.card-header {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  margin-bottom: 12px; gap: 14px;
+}
+.course-title h3 {
+  font-size: 1rem; color: var(--text-primary); margin-bottom: 2px;
+  font-family: var(--font-mono); font-weight: 600;
+}
+.course-title p { color: var(--text-secondary); font-size: 0.88rem; }
+
+.priority-badge {
+  padding: 3px 12px; border-radius: var(--radius-pill); font-size: 0.68rem;
+  font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+}
+.priority-high { background: var(--danger-dim); color: var(--danger); }
+.priority-medium { background: var(--warning-dim); color: var(--warning); }
+.priority-low { background: var(--success-dim); color: var(--success); }
+
+.course-meta-row {
+  display: flex; gap: 18px; margin-bottom: 12px;
+  font-size: 0.8rem; color: var(--text-muted);
+}
+.meta-item { display: flex; align-items: center; gap: 5px; }
+.meta-item span.value { color: var(--text-primary); font-weight: 600; }
+
+.ai-reasoning {
+  padding: 12px 14px; background: var(--accent-dim);
+  border-left: 3px solid var(--accent); border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  margin-bottom: 12px;
+}
+.ai-reasoning h4 {
+  font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--accent); margin-bottom: 4px; font-weight: 700;
+}
+.ai-reasoning p { color: var(--text-secondary); font-size: 0.83rem; line-height: 1.5; margin: 0; }
+
+.expanded-content {
+  margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);
+  animation: fadeIn .15s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.expanded-content .detail-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.expanded-content h4 {
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-muted); margin-bottom: 4px; font-weight: 700;
+}
+.expanded-content p { color: var(--text-secondary); font-size: 0.83rem; }
+
+.card-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+
+@media (max-width: 768px) {
+  .card-header { flex-direction: column; }
+  .expanded-content .detail-row { grid-template-columns: 1fr; }
+}
