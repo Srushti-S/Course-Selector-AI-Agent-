@@ -5,7 +5,8 @@ import CoursePlanner from './components/CoursePlanner';
 import RecommendationPanel from './components/RecommendationPanel';
 import PrerequisiteVisualization from './components/PrerequisiteVisualization';
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+///const API = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const API = process.env.REACT_APP_API_URL || 'https://course-planner-api-xxxx.onrender.com';
 
 function App() {
   const [activeTab, setActiveTab] = useState('profile');
