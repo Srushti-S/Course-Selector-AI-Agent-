@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: Smart Course Selector
+    name: course-planner-api
     runtime: python
     region: oregon
     buildCommand: cd backend && pip install -r requirements.txt
