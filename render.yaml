@@ -9,17 +9,23 @@ services:
       - key: OPENAI_API_KEY
         sync: false
       - key: PYTHON_VERSION
-        value: "3.11"
- 
+        value: "3.11.9"
+
   - type: web
     name: course-planner-frontend
     runtime: static
     buildCommand: cd frontend && npm install && npm run build
     staticPublishPath: frontend/build
+    envVars:
+      - key: REACT_APP_API_URL
+        value: https://course-planner-api.onrender.com
     headers:
-      - path: /*
+      - path: /index.html
         name: Cache-Control
         value: no-cache
+      - path: /static/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
     routes:
       - type: rewrite
         source: /*

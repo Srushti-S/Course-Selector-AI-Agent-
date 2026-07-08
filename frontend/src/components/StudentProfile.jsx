@@ -1,16 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
 import './StudentProfile.css';
 
-const StudentProfile = ({ profile, setProfile, onGetRecommendations, courseCatalog, error }) => {
+const DEFAULT_MAJORS = [
+  'Computer Science', 'Data Science', 'Software Engineering',
+  'Information Systems', 'Cybersecurity', 'Artificial Intelligence',
+];
+
+const StudentProfile = ({ profile, setProfile, onGetRecommendations, courseCatalog, majors: majorsProp, error }) => {
   const [courseQuery, setCourseQuery] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   const [newInterest, setNewInterest] = useState('');
   const dropdownRef = useRef(null);
 
-  const majors = [
-    'Computer Science', 'Data Science', 'Software Engineering',
-    'Information Systems', 'Cybersecurity', 'Artificial Intelligence',
-  ];
+  const majors = majorsProp && majorsProp.length > 0 ? majorsProp : DEFAULT_MAJORS;
   const years = ['Freshman', 'Sophomore', 'Junior', 'Senior'];
 
   const interestSuggestions = [
@@ -67,7 +69,7 @@ const StudentProfile = ({ profile, setProfile, onGetRecommendations, courseCatal
       <h2>Student Profile</h2>
       <p className="subtitle">Fill out your info to get personalized course recommendations</p>
 
-      {error && <div className="error-message">⚠ {error} — Make sure the backend is running on port 8000.</div>}
+      {error && <div className="error-message">⚠ {error} — Could not reach the backend. Check that it is running.</div>}
 
       <div className="profile-form">
         <div className="form-section">

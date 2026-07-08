@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import './RecommendationPanel.css';
 
-const RecommendationPanel = ({ recommendations, onAddToPlan }) => {
+const RecommendationPanel = ({ recommendations, source, onAddToPlan }) => {
   const [expandedCard, setExpandedCard] = useState(null);
 
   if (recommendations.length === 0) {
@@ -26,7 +26,9 @@ const RecommendationPanel = ({ recommendations, onAddToPlan }) => {
         <p className="subtitle">
           {recommendations.length} courses · {totalCredits} credits · {highCount} high priority
         </p>
-        <div className="ai-badge">◈ AI-Generated</div>
+        <div className="ai-badge">
+          {source === 'ai' ? '◈ AI-Generated' : '⚙ Rule-Based Engine'}
+        </div>
       </div>
 
       <div className="recommendations-grid">

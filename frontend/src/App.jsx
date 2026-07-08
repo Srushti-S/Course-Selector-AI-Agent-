@@ -5,8 +5,27 @@ import CoursePlanner from './components/CoursePlanner';
 import RecommendationPanel from './components/RecommendationPanel';
 import PrerequisiteVisualization from './components/PrerequisiteVisualization';
 
-///const API = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-const API = process.env.REACT_APP_API_URL || 'https://course-planner-api-xxxx.onrender.com';
+const API = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+
+const upcomingSemesters = (count = 4) => {
+  const now = new Date();
+  let term = now.getMonth() <= 6 ? 'Fall' : 'Spring';
+  let year = now.getMonth() <= 6 ? now.getFullYear() : now.getFullYear() + 1;
+  const labels = [];
+  for (let i = 0; i < count; i += 1) {
+    labels.push(`${term} ${year}`);
+    if (term === 'Fall') {
+      term = 'Spring';
+      year += 1;
+    } else {
+      term = 'Fall';
+    }
+  }
+  return labels;
+};
+
+const newCourseId = () =>
+  `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 function App() {
   const [activeTab, setActiveTab] = useState('profile');
@@ -20,20 +39,37 @@ function App() {
     creditHoursPerSemester: 15,
   });
   const [recommendations, setRecommendations] = useState([]);
+  const [recSource, setRecSource] = useState(null);
   const [courseCatalog, setCourseCatalog] = useState([]);
+  const [catalogError, setCatalogError] = useState(false);
+  const [majors, setMajors] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [planSemesters, setPlanSemesters] = useState([
-    { id: 1, name: 'Fall 2025', courses: [] },
-    { id: 2, name: 'Spring 2026', courses: [] },
-    { id: 3, name: 'Fall 2026', courses: [] },
-    { id: 4, name: 'Spring 2027', courses: [] },
-  ]);
+  const [planLoading, setPlanLoading] = useState(false);
+  const [planError, setPlanError] = useState(null);
+  const [planSource, setPlanSource] = useState(null);
+  const [planSemesters, setPlanSemesters] = useState(() =>
+    upcomingSemesters().map((name, i) => ({ id: i + 1, name, courses: [] }))
+  );
 
   useEffect(() => {
     fetch(`${API}/api/courses`)
-      .then((r) => r.json())
-      .then((data) => setCourseCatalog(data.courses || []))
+      .then((r) => {
+        if (!r.ok) throw new Error(`Server error (${r.status})`);
+        return r.json();
+      })
+      .then((data) => {
+        setCourseCatalog(data.courses || []);
+        setCatalogError(false);
+      })
+      .catch(() => setCatalogError(true));
+
+    fetch(`${API}/api/majors`)
+      .then((r) => {
+        if (!r.ok) throw new Error(`Server error (${r.status})`);
+        return r.json();
+      })
+      .then((data) => setMajors(data.majors || []))
       .catch(() => {});
   }, []);
 
@@ -48,7 +84,8 @@ function App() {
       });
       if (!res.ok) throw new Error(`Server error (${res.status})`);
       const data = await res.json();
-      setRecommendations(data);
+      setRecommendations(data.recommendations || []);
+      setRecSource(data.source || null);
       setActiveTab('recommendations');
     } catch (e) {
       setError(e.message);
@@ -57,15 +94,54 @@ function App() {
     }
   };
 
-  const handleAddToPlan = (rec) => {
+  const handleGeneratePlan = async () => {
+    setPlanLoading(true);
+    setPlanError(null);
+    try {
+      const res = await fetch(`${API}/api/plan`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(studentProfile),
+      });
+      if (res.status === 422) {
+        throw new Error('Complete your profile (name, major, career goals) first');
+      }
+      if (!res.ok) throw new Error(`Server error (${res.status})`);
+      const data = await res.json();
+      const returned = data.plan || [];
+      const names = [...new Set([
+        ...returned.map((p) => p.semester),
+        ...upcomingSemesters(),
+      ])].slice(0, Math.max(4, returned.length));
+      setPlanSemesters(
+        names.map((name, i) => {
+          const sem = returned.find((p) => p.semester === name);
+          return {
+            id: i + 1,
+            name,
+            courses: (sem ? sem.courses : []).map((c) => ({
+              ...c,
+              id: newCourseId(),
+            })),
+          };
+        })
+      );
+      setPlanSource(data.source || null);
+    } catch (e) {
+      setPlanError(e.message);
+    } finally {
+      setPlanLoading(false);
+    }
+  };
 
+  const handleAddToPlan = (rec) => {
     const targetSem = planSemesters.find((s) => s.name === rec.semester) || planSemesters[0];
     if (!targetSem) return;
     if (targetSem.courses.some((c) => c.courseCode === rec.courseCode)) return;
     setPlanSemesters((prev) =>
       prev.map((s) =>
         s.id === targetSem.id
-          ? { ...s, courses: [...s.courses, { id: Date.now(), ...rec }] }
+          ? { ...s, courses: [...s.courses, { ...rec, id: newCourseId() }] }
           : s
       )
     );
@@ -102,6 +178,13 @@ function App() {
       </nav>
 
       <main className="app-content">
+        {catalogError && (
+          <div className="error-message">
+            ⚠ Could not load the course catalog from {API}. Course search, the
+            prerequisite map, and recommendations need the backend to be running.
+          </div>
+        )}
+
         {loading && (
           <div className="loading-overlay">
             <div className="spinner" />
@@ -115,6 +198,7 @@ function App() {
             setProfile={setStudentProfile}
             onGetRecommendations={handleGetRecommendations}
             courseCatalog={courseCatalog}
+            majors={majors}
             error={error}
           />
         )}
@@ -124,12 +208,18 @@ function App() {
             semesters={planSemesters}
             setSemesters={setPlanSemesters}
             studentProfile={studentProfile}
+            onGeneratePlan={handleGeneratePlan}
+            planLoading={planLoading}
+            planError={planError}
+            planSource={planSource}
+            profileComplete={!!(studentProfile.name && studentProfile.major && studentProfile.careerGoals)}
           />
         )}
 
         {!loading && activeTab === 'recommendations' && (
           <RecommendationPanel
             recommendations={recommendations}
+            source={recSource}
             onAddToPlan={handleAddToPlan}
           />
         )}

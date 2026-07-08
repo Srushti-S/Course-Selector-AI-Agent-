@@ -122,7 +122,16 @@ COURSE_CATALOG = [
         "prerequisites": "CS101 and STAT101",
         "description": "Data analysis and visualization"
     },
-    
+    {
+        "code": "IS201",
+        "name": "Management Information Systems",
+        "credits": 3,
+        "level": 2,
+        "major": "Information Systems",
+        "prerequisites": "CS101",
+        "description": "Business processes and information systems"
+    },
+
     {
         "code": "CS301",
         "name": "Algorithm Design and Analysis",
@@ -222,7 +231,25 @@ COURSE_CATALOG = [
         "prerequisites": "CS250",
         "description": "Encryption algorithms"
     },
-    
+    {
+        "code": "IS301",
+        "name": "Systems Analysis and Design",
+        "credits": 3,
+        "level": 3,
+        "major": "Information Systems",
+        "prerequisites": "IS201",
+        "description": "Requirements gathering and system modeling"
+    },
+    {
+        "code": "IS310",
+        "name": "Enterprise Data Management",
+        "credits": 3,
+        "level": 3,
+        "major": "Information Systems",
+        "prerequisites": "IS201 and CS310",
+        "description": "Data governance and enterprise databases"
+    },
+
     # Level 4 - Specialization
     {
         "code": "CS401",
@@ -340,5 +367,23 @@ COURSE_CATALOG = [
         "major": "Cybersecurity",
         "prerequisites": "CY301",
         "description": "Penetration testing"
+    },
+    {
+        "code": "IS401",
+        "name": "IT Project Management",
+        "credits": 3,
+        "level": 4,
+        "major": "Information Systems",
+        "prerequisites": "IS301",
+        "description": "Planning and delivering technology projects"
+    },
+    {
+        "code": "IS410",
+        "name": "Business Intelligence",
+        "credits": 3,
+        "level": 4,
+        "major": "Information Systems",
+        "prerequisites": "IS310 and STAT101",
+        "description": "Dashboards, reporting, and decision support"
     }
 ]

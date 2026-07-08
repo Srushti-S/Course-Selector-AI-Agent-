@@ -1,26 +1,52 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import './CoursePlanner.css';
 
-const CoursePlanner = ({ semesters, setSemesters, studentProfile }) => {
+const prereqCodes = (course) => {
+  const str = course.prerequisites;
+  if (!str || str === 'None') return [];
+  return str.match(/[A-Z]{2,4}\d{3}/g) || [];
+};
+
+const CoursePlanner = ({
+  semesters,
+  setSemesters,
+  studentProfile,
+  onGeneratePlan,
+  planLoading,
+  planError,
+  planSource,
+  profileComplete,
+}) => {
   const [draggedCourse, setDraggedCourse] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [selectedSemester, setSelectedSemester] = useState(null);
   const [newCourse, setNewCourse] = useState({ courseCode: '', courseName: '', credits: 3 });
 
-  const handleDragStart = (course, semId) => setDraggedCourse({ course, semId });
+  const handleDragStart = (e, course, semId) => {
+    e.dataTransfer.setData('text/plain', String(course.id));
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggedCourse({ course, semId });
+  };
   const handleDragOver = (e) => e.preventDefault();
 
   const handleDrop = (targetId) => {
     if (!draggedCourse) return;
-    setSemesters((prev) =>
-      prev.map((s) => {
+    if (draggedCourse.semId === targetId) {
+      setDraggedCourse(null);
+      return;
+    }
+    setSemesters((prev) => {
+      const source = prev.find((s) => s.id === draggedCourse.semId);
+      const course = source && source.courses.find((c) => c.id === draggedCourse.course.id);
+      if (!course || !prev.some((s) => s.id === targetId)) return prev;
+      return prev.map((s) => {
         if (s.id === draggedCourse.semId)
-          return { ...s, courses: s.courses.filter((c) => c.id !== draggedCourse.course.id) };
+          return { ...s, courses: s.courses.filter((c) => c.id !== course.id) };
         if (s.id === targetId)
-          return { ...s, courses: [...s.courses, draggedCourse.course] };
+          return { ...s, courses: [...s.courses, course] };
         return s;
-      })
-    );
+      });
+    });
     setDraggedCourse(null);
   };
 
@@ -61,10 +87,47 @@ const CoursePlanner = ({ semesters, setSemesters, studentProfile }) => {
   const totalCourses = semesters.reduce((t, s) => t + s.courses.length, 0);
   const max = studentProfile.creditHoursPerSemester || 15;
 
+  const missingPrereqs = useMemo(() => {
+    const satisfied = new Set(studentProfile.completedCourses || []);
+    const map = {};
+    semesters.forEach((sem) => {
+      sem.courses.forEach((c) => {
+        const missing = prereqCodes(c).filter((p) => !satisfied.has(p));
+        if (missing.length > 0) map[c.id] = missing;
+      });
+      sem.courses.forEach((c) => {
+        if (c.courseCode) satisfied.add(c.courseCode);
+      });
+    });
+    return map;
+  }, [semesters, studentProfile.completedCourses]);
+  const conflictCount = Object.keys(missingPrereqs).length;
+
   return (
     <div className="course-planner">
       <div className="planner-header">
         <h2>Semester Planner</h2>
+        <div className="planner-generate">
+          <button
+            className="btn-primary"
+            onClick={onGeneratePlan}
+            disabled={planLoading || !profileComplete}
+          >
+            {planLoading ? 'Generating…' : '◈ Generate Plan'}
+          </button>
+          {!profileComplete && (
+            <span className="plan-hint">Complete your profile to generate a plan</span>
+          )}
+          {planSource && (
+            <span className="plan-source-badge">
+              {planSource === 'ai' ? '◈ AI-generated plan' : '⚙ Rule-based plan'}
+            </span>
+          )}
+          {conflictCount > 0 && (
+            <span className="warning">⚠ {conflictCount} prerequisite conflict{conflictCount > 1 ? 's' : ''}</span>
+          )}
+          {planError && <span className="warning">⚠ {planError}</span>}
+        </div>
         <div className="planner-stats">
           <div className="stat-card">
             <span className="stat-label">Semesters</span>
@@ -91,7 +154,10 @@ const CoursePlanner = ({ semesters, setSemesters, studentProfile }) => {
               key={sem.id}
               className={`semester-card ${over ? 'overloaded' : ''} ${under ? 'underloaded' : ''}`}
               onDragOver={handleDragOver}
-              onDrop={() => handleDrop(sem.id)}
+              onDrop={(e) => {
+                e.preventDefault();
+                handleDrop(sem.id);
+              }}
             >
               <div className="semester-header">
                 <h3>{sem.name}</h3>
@@ -114,13 +180,18 @@ const CoursePlanner = ({ semesters, setSemesters, studentProfile }) => {
                   sem.courses.map((c) => (
                     <div
                       key={c.id}
-                      className="course-card"
+                      className={`course-card ${missingPrereqs[c.id] ? 'prereq-conflict' : ''}`}
                       draggable
-                      onDragStart={() => handleDragStart(c, sem.id)}
+                      onDragStart={(e) => handleDragStart(e, c, sem.id)}
                     >
                       <div className="course-info">
                         <strong>{c.courseCode}</strong>
                         <p>{c.courseName}</p>
+                        {missingPrereqs[c.id] && (
+                          <span className="prereq-warning">
+                            ⚠ needs {missingPrereqs[c.id].join(', ')}
+                          </span>
+                        )}
                       </div>
                       <div className="course-meta">
                         <span className="credits-badge">{c.credits} cr</span>

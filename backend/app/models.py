@@ -1,21 +1,21 @@
 """
 Pydantic Models — Enhanced
 """
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 
 
 class StudentProfile(BaseModel):
-    name: str
-    major: str
-    year: str
+    name: str = Field(min_length=1, max_length=100)
+    major: str = Field(min_length=1, max_length=100)
+    year: str = Field(min_length=1, max_length=30)
     completedCourses: List[str] = []
     interests: List[str] = []
-    careerGoals: str
-    creditHoursPerSemester: int = 15
+    careerGoals: str = Field(min_length=1, max_length=2000)
+    creditHoursPerSemester: int = Field(default=15, ge=3, le=30)
 
-    class Config:
-        json_schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "name": "Alice Johnson",
                 "major": "Computer Science",
@@ -26,6 +26,7 @@ class StudentProfile(BaseModel):
                 "creditHoursPerSemester": 15,
             }
         }
+    }
 
 
 class Recommendation(BaseModel):
@@ -35,17 +36,27 @@ class Recommendation(BaseModel):
     credits: int
     semester: str
     reason: str
-    priority: str  # high, medium, low
+    priority: str
     prerequisites: Optional[str] = None
     description: Optional[str] = None
     level: Optional[int] = None
     major: Optional[str] = None
 
 
+class RecommendationResponse(BaseModel):
+    source: str
+    recommendations: List[Recommendation]
+
+
 class SemesterPlan(BaseModel):
     semester: str
     courses: List[Recommendation]
     totalCredits: int
+
+
+class PlanResponse(BaseModel):
+    source: str
+    plan: List[SemesterPlan]
 
 
 class CourseDetail(BaseModel):
