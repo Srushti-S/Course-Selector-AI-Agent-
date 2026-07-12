@@ -250,7 +250,6 @@ COURSE_CATALOG = [
         "description": "Data governance and enterprise databases"
     },
 
-    # Level 4 - Specialization
     {
         "code": "CS401",
         "name": "Advanced Algorithms",

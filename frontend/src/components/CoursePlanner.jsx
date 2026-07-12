@@ -12,6 +12,8 @@ const CoursePlanner = ({
   setSemesters,
   studentProfile,
   onGeneratePlan,
+  onSavePlan,
+  savedPlanId,
   planLoading,
   planError,
   planSource,
@@ -115,8 +117,14 @@ const CoursePlanner = ({
           >
             {planLoading ? 'Generating…' : '◈ Generate Plan'}
           </button>
+          <button className="btn-secondary" onClick={onSavePlan} disabled={totalCourses === 0}>
+            Save Plan
+          </button>
           {!profileComplete && (
             <span className="plan-hint">Complete your profile to generate a plan</span>
+          )}
+          {savedPlanId && (
+            <span className="plan-hint">Saved — share with ?plan={savedPlanId}</span>
           )}
           {planSource && (
             <span className="plan-source-badge">

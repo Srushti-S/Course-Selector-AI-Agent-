@@ -1,14 +1,17 @@
 """
 Course Recommendation Service — Enhanced with LangChain + Fallback
 """
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 import re
 import os
-import json
+import math
 import logging
 from datetime import date
 
+from pydantic import BaseModel
+
 from app.models import StudentProfile, Recommendation, SemesterPlan
+from app.data import COURSE_CATALOG
 
 logger = logging.getLogger(__name__)
 
@@ -38,11 +41,45 @@ def upcoming_semesters(count: int = 4) -> List[str]:
     return labels
 
 
-def compact_courses(courses: List[dict]) -> str:
-    fields = ("code", "name", "credits", "level", "major", "prerequisites")
-    return json.dumps(
-        [{k: c[k] for k in fields} for c in courses], separators=(",", ":")
+def cosine(a, b) -> float:
+    dot = sum(x * y for x, y in zip(a, b))
+    norm_a = math.sqrt(sum(x * x for x in a))
+    norm_b = math.sqrt(sum(y * y for y in b))
+    if norm_a == 0 or norm_b == 0:
+        return 0.0
+    return dot / (norm_a * norm_b)
+
+
+def course_summary(course: dict) -> str:
+    return (
+        f"{course['code']} {course['name']} ({course['credits']} cr, level {course['level']}, "
+        f"{course['major']}, prereqs: {course['prerequisites']})"
     )
+
+
+class AiRecommendation(BaseModel):
+    courseCode: str
+    reason: str = ""
+    priority: str = "medium"
+    semester: str = ""
+
+
+class AiRecommendations(BaseModel):
+    items: List[AiRecommendation]
+
+
+class AiPlanCourse(BaseModel):
+    courseCode: str
+    reason: str = ""
+
+
+class AiPlanSemester(BaseModel):
+    semester: str
+    courses: List[AiPlanCourse] = []
+
+
+class AiPlan(BaseModel):
+    semesters: List[AiPlanSemester]
 
 
 class CourseRecommendationService:
@@ -53,6 +90,11 @@ class CourseRecommendationService:
         self._llm = None
         self._rec_chain = None
         self._plan_chain = None
+        self._embeddings = None
+        self._catalog_vectors = None
+        self._embed_failures = 0
+        self._last_query = None
+        self._last_query_vector = None
         self._init_ai()
 
     def _init_ai(self):
@@ -62,28 +104,27 @@ class CourseRecommendationService:
             logger.info("No OpenAI API key — using rule-based recommendations.")
             return
         try:
-            from langchain_openai import ChatOpenAI
+            from langchain_openai import ChatOpenAI, OpenAIEmbeddings
             from langchain_core.prompts import ChatPromptTemplate
 
             model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
             self._llm = ChatOpenAI(model=model, temperature=0, timeout=45)
+            self._embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 
             rec_prompt = ChatPromptTemplate.from_messages(
                 [
                     (
                         "system",
-                        "You are an expert academic advisor. Given a student profile and the "
-                        "available course catalog, recommend the best courses for this student. "
-                        "Return ONLY a JSON array of 6-8 objects, each with fields: "
-                        "courseCode (must be a code from the catalog), reason (one specific "
-                        "sentence tailored to this student), priority (high/medium/low), and "
-                        "semester (one of the provided semester labels). Prefer courses whose "
-                        "prerequisites the student has completed.",
+                        "You are an academic advisor. Recommend 6-8 courses from the catalog "
+                        "for this student. Use only course codes that appear in the catalog. "
+                        "Prefer courses whose prerequisites the student has completed, and give "
+                        "each pick a specific one-sentence reason tied to the student's goals. "
+                        "Priority is high, medium, or low. Semester must be one of the given labels.",
                     ),
                     (
                         "human",
                         "Student profile:\n{profile}\n\nSemester labels: {semesters}\n\n"
-                        "Course catalog:\n{courses}\n\nReturn ONLY the JSON array.",
+                        "Course catalog:\n{courses}",
                     ),
                 ]
             )
@@ -91,27 +132,22 @@ class CourseRecommendationService:
                 [
                     (
                         "system",
-                        "You are an expert academic advisor building a multi-semester schedule. "
-                        "Given a student profile, a course catalog, semester labels, and a "
-                        "per-semester credit limit, assign courses to semesters. Rules: never "
-                        "include courses the student already completed; a course's prerequisites "
-                        "must all be either already completed or scheduled in an EARLIER semester; "
-                        "each semester's total credits must not exceed the limit and should be "
-                        "close to it; favor courses matching the student's major, interests, and "
-                        "career goals. Return ONLY a JSON array with one object per semester "
-                        "label, each with fields: semester (the label) and courses (array of "
-                        "objects with courseCode and reason).",
+                        "You are an academic advisor building a multi-semester schedule. "
+                        "Assign catalog courses to the given semester labels. Never include "
+                        "courses the student already completed. A course's prerequisites must "
+                        "all be completed or scheduled in an earlier semester. Keep each "
+                        "semester at or under the credit limit and reasonably full. Favor the "
+                        "student's major, interests, and career goals.",
                     ),
                     (
                         "human",
                         "Student profile:\n{profile}\n\nSemester labels: {semesters}\n\n"
-                        "Credit limit per semester: {max_credits}\n\nCourse catalog:\n{courses}\n\n"
-                        "Return ONLY the JSON array.",
+                        "Credit limit per semester: {max_credits}\n\nCourse catalog:\n{courses}",
                     ),
                 ]
             )
-            self._rec_chain = rec_prompt | self._llm
-            self._plan_chain = plan_prompt | self._llm
+            self._rec_chain = rec_prompt | self._llm.with_structured_output(AiRecommendations)
+            self._plan_chain = plan_prompt | self._llm.with_structured_output(AiPlan)
             self.ai_enabled = True
             logger.info("LangChain AI recommendations enabled (model=%s).", model)
         except Exception as e:
@@ -127,17 +163,33 @@ class CourseRecommendationService:
             f"Credit Hours/Semester: {profile.creditHoursPerSemester}"
         )
 
-    @staticmethod
-    def _extract_json_array(raw: str):
-        text = raw.strip()
-        start = text.find("[")
-        end = text.rfind("]")
-        if start == -1 or end <= start:
-            raise ValueError("No JSON array found in model response")
-        data = json.loads(text[start : end + 1])
-        if not isinstance(data, list):
-            raise ValueError("Model response is not a JSON array")
-        return data
+    def _semantic_scores(self, profile: StudentProfile) -> Optional[dict]:
+        if not self._embeddings:
+            return None
+        query = " ".join(profile.interests + [profile.careerGoals]).strip()
+        if not query:
+            return None
+        try:
+            if self._catalog_vectors is None:
+                texts = [f"{c['name']}. {c.get('description', '')}" for c in COURSE_CATALOG]
+                vectors = self._embeddings.embed_documents(texts)
+                self._catalog_vectors = {
+                    c["code"]: v for c, v in zip(COURSE_CATALOG, vectors)
+                }
+            if query != self._last_query:
+                self._last_query_vector = self._embeddings.embed_query(query)
+                self._last_query = query
+            self._embed_failures = 0
+            return {
+                code: cosine(self._last_query_vector, vector)
+                for code, vector in self._catalog_vectors.items()
+            }
+        except Exception as e:
+            logger.warning(f"Embeddings unavailable, using keyword matching: {e}")
+            self._embed_failures += 1
+            if self._embed_failures >= 3:
+                self._embeddings = None
+            return None
 
     def _course_to_recommendation(
         self, course: dict, rec_id: int, semester: str, reason: str, priority: str
@@ -179,32 +231,27 @@ class CourseRecommendationService:
         """Generate recommendations using LangChain."""
         by_code = {c["code"]: c for c in available}
         semesters = upcoming_semesters()
-        response = self._rec_chain.invoke(
+        result = self._rec_chain.invoke(
             {
                 "profile": self._profile_str(profile),
                 "semesters": ", ".join(semesters),
-                "courses": compact_courses(available),
+                "courses": "\n".join(course_summary(c) for c in available),
             }
         )
-        data = self._extract_json_array(response.content)
 
         recommendations = []
         seen = set()
-        for item in data:
-            if not isinstance(item, dict):
-                continue
-            code = str(item.get("courseCode", "")).strip().upper()
+        for item in result.items:
+            code = item.courseCode.strip().upper()
             course = by_code.get(code)
             if course is None or code in seen:
                 continue
             seen.add(code)
-            priority = str(item.get("priority", "medium")).strip().lower()
+            priority = item.priority.strip().lower()
             if priority not in PRIORITIES:
                 priority = "medium"
-            semester = item.get("semester")
-            if semester not in semesters:
-                semester = semesters[0]
-            reason = str(item.get("reason") or "Recommended for your program").strip()
+            semester = item.semester if item.semester in semesters else semesters[0]
+            reason = item.reason.strip() or "Recommended for your program"
             recommendations.append(
                 self._course_to_recommendation(
                     course, len(recommendations) + 1, semester, reason, priority
@@ -242,6 +289,7 @@ class CourseRecommendationService:
         year_to_level = {"Freshman": 1, "Sophomore": 2, "Junior": 3, "Senior": 4}
         current_level = year_to_level.get(profile.year, 2)
         completed = set(profile.completedCourses)
+        similarities = self._semantic_scores(profile)
 
         major_prefixes = {
             "Computer Science": ["CS"],
@@ -293,15 +341,23 @@ class CourseRecommendationService:
                 score -= 2
 
             course_text = f"{course['name']} {course.get('description', '')}".lower()
-            for interest in profile.interests:
-                if interest.lower() in course_text:
+            if similarities is not None:
+                sim = similarities.get(course["code"], 0.0)
+                if sim >= 0.4:
                     score += 4
-                    reasons.append(f"Matches your interest in {interest}")
-                    break
-
-            if matched_keywords and any(kw in course_text for kw in matched_keywords):
-                score += 3
-                reasons.append("Aligns with your career goals")
+                    reasons.append("Strong match for your interests and goals")
+                elif sim >= 0.3:
+                    score += 2
+                    reasons.append("Related to your interests")
+            else:
+                for interest in profile.interests:
+                    if interest.lower() in course_text:
+                        score += 4
+                        reasons.append(f"Matches your interest in {interest}")
+                        break
+                if matched_keywords and any(kw in course_text for kw in matched_keywords):
+                    score += 3
+                    reasons.append("Aligns with your career goals")
 
             prereq_codes = parse_prereqs(course.get("prerequisites", "None"))
             if prereq_codes:
@@ -347,20 +403,19 @@ class CourseRecommendationService:
         semesters = upcoming_semesters()
         max_credits = profile.creditHoursPerSemester
 
-        response = self._plan_chain.invoke(
+        result = self._plan_chain.invoke(
             {
                 "profile": self._profile_str(profile),
                 "semesters": ", ".join(semesters),
                 "max_credits": max_credits,
-                "courses": compact_courses(available),
+                "courses": "\n".join(course_summary(c) for c in available),
             }
         )
-        data = self._extract_json_array(response.content)
-
-        proposed = {}
-        for entry in data:
-            if isinstance(entry, dict) and entry.get("semester") in semesters:
-                proposed[entry["semester"]] = entry.get("courses") or []
+        proposed = {
+            entry.semester: entry.courses
+            for entry in result.semesters
+            if entry.semester in semesters
+        }
 
         plan = []
         satisfied = set(completed)
@@ -371,12 +426,7 @@ class CourseRecommendationService:
             sem_credits = 0
             rec_id = sem_index * 10 + 1
             for item in proposed.get(sem_label, []):
-                if isinstance(item, dict):
-                    code = str(item.get("courseCode", "")).strip().upper()
-                    reason = str(item.get("reason") or "").strip()
-                else:
-                    code = str(item).strip().upper()
-                    reason = ""
+                code = item.courseCode.strip().upper()
                 course = by_code.get(code)
                 if course is None or code in used:
                     continue
@@ -390,7 +440,7 @@ class CourseRecommendationService:
                         course,
                         rec_id,
                         sem_label,
-                        reason or "Scheduled by your AI advisor",
+                        item.reason.strip() or "Scheduled by your AI advisor",
                         "high",
                     )
                 )

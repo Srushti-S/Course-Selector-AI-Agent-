@@ -4,6 +4,7 @@ Main FastAPI Application — AI Course Planner v2
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
+import json
 import logging
 import os
 from dotenv import load_dotenv
@@ -11,6 +12,7 @@ from dotenv import load_dotenv
 from app.models import StudentProfile, RecommendationResponse, PlanResponse
 from app.services import CourseRecommendationService, parse_prereqs
 from app.data import COURSE_CATALOG
+from app import db
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -113,6 +115,21 @@ async def get_majors():
             "Information Systems", "Cybersecurity", "Artificial Intelligence",
         ]
     }
+
+
+@app.post("/api/plans")
+def save_plan(payload: dict):
+    if len(json.dumps(payload)) > 50000:
+        raise HTTPException(status_code=413, detail="Plan too large")
+    return {"id": db.save_plan(payload)}
+
+
+@app.get("/api/plans/{plan_id}")
+def load_plan(plan_id: str):
+    data = db.get_plan(plan_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    return data
 
 
 @app.get("/api/prerequisites/{code}")

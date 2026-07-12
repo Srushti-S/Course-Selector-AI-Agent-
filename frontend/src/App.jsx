@@ -48,6 +48,7 @@ function App() {
   const [planLoading, setPlanLoading] = useState(false);
   const [planError, setPlanError] = useState(null);
   const [planSource, setPlanSource] = useState(null);
+  const [savedPlanId, setSavedPlanId] = useState(null);
   const [planSemesters, setPlanSemesters] = useState(() =>
     upcomingSemesters().map((name, i) => ({ id: i + 1, name, courses: [] }))
   );
@@ -71,6 +72,25 @@ function App() {
       })
       .then((data) => setMajors(data.majors || []))
       .catch(() => {});
+
+    const planId = new URLSearchParams(window.location.search).get('plan');
+    if (planId) {
+      fetch(`${API}/api/plans/${planId}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (!data || !Array.isArray(data.semesters)) return;
+          const semesters = data.semesters
+            .filter((s) => s && typeof s === 'object' && Array.isArray(s.courses))
+            .map((s, i) => ({ ...s, id: s.id ?? i + 1, name: String(s.name || `Semester ${i + 1}`) }));
+          if (semesters.length === 0) return;
+          setPlanSemesters(semesters);
+          if (data.profile && typeof data.profile === 'object' && !Array.isArray(data.profile)) {
+            setStudentProfile((prev) => ({ ...prev, ...data.profile }));
+          }
+          setActiveTab('planner');
+        })
+        .catch(() => {});
+    }
   }, []);
 
   const handleGetRecommendations = async () => {
@@ -131,6 +151,22 @@ function App() {
       setPlanError(e.message);
     } finally {
       setPlanLoading(false);
+    }
+  };
+
+  const handleSavePlan = async () => {
+    setPlanError(null);
+    try {
+      const res = await fetch(`${API}/api/plans`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profile: studentProfile, semesters: planSemesters }),
+      });
+      if (!res.ok) throw new Error(`Server error (${res.status})`);
+      const data = await res.json();
+      setSavedPlanId(data.id);
+    } catch (e) {
+      setPlanError(e.message);
     }
   };
 
@@ -209,6 +245,8 @@ function App() {
             setSemesters={setPlanSemesters}
             studentProfile={studentProfile}
             onGeneratePlan={handleGeneratePlan}
+            onSavePlan={handleSavePlan}
+            savedPlanId={savedPlanId}
             planLoading={planLoading}
             planError={planError}
             planSource={planSource}

@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app.main as main
+from app import db
 from app.data import COURSE_CATALOG
 from app.services import parse_prereqs, upcoming_semesters
 
@@ -19,6 +20,7 @@ CODES = {c["code"] for c in COURSE_CATALOG}
 @pytest.fixture(autouse=True)
 def force_rule_based(monkeypatch):
     monkeypatch.setattr(main.recommendation_service, "ai_enabled", False)
+    monkeypatch.setattr(main.recommendation_service, "_embeddings", None)
 
 
 @pytest.fixture
@@ -111,6 +113,23 @@ def test_plan_respects_credits_and_prerequisites(profile):
                     f"before prerequisite {prereq}"
                 )
         completed.update(c["courseCode"] for c in semester["courses"])
+
+
+def test_save_and_load_plan(tmp_path, monkeypatch):
+    monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "plans.db"))
+    payload = {
+        "profile": {"name": "Alice", "major": "Computer Science"},
+        "semesters": [{"id": 1, "name": "Fall 2026", "courses": []}],
+    }
+    res = client.post("/api/plans", json=payload)
+    assert res.status_code == 200
+    plan_id = res.json()["id"]
+
+    res = client.get(f"/api/plans/{plan_id}")
+    assert res.status_code == 200
+    assert res.json() == payload
+
+    assert client.get("/api/plans/doesnotexist").status_code == 404
 
 
 def test_profile_validation():
