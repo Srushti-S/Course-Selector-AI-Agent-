@@ -4,6 +4,7 @@ import StudentProfile from './components/StudentProfile';
 import CoursePlanner from './components/CoursePlanner';
 import RecommendationPanel from './components/RecommendationPanel';
 import PrerequisiteVisualization from './components/PrerequisiteVisualization';
+import Icon from './components/Icon';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -185,44 +186,46 @@ function App() {
   };
 
   const tabs = [
-    { id: 'profile', label: 'Profile', icon: '◉' },
-    { id: 'planner', label: 'Planner', icon: '▦' },
-    { id: 'recommendations', label: 'AI Recs', icon: '◈' },
-    { id: 'prerequisites', label: 'Prereq Map', icon: '◎' },
+    { id: 'profile', label: 'Profile' },
+    { id: 'planner', label: 'Planner' },
+    { id: 'recommendations', label: 'AI Recs' },
+    { id: 'prerequisites', label: 'Prereq Map' },
   ];
 
   return (
     <div className="App">
       <header className="app-header">
-        <h1>
-          <span>●</span> Course Planner
-        </h1>
+        <h1>Course Planner</h1>
         <p>AI-powered academic planning</p>
       </header>
 
-      <nav className="tab-navigation">
+      <nav className="tab-navigation" aria-label="Sections">
         {tabs.map((tab) => (
           <button
             key={tab.id}
+            type="button"
             className={`tab-button ${activeTab === tab.id ? 'active' : ''}`}
+            aria-current={activeTab === tab.id ? 'page' : undefined}
             onClick={() => setActiveTab(tab.id)}
           >
-            <span className="tab-icon">{tab.icon}</span>
-            <span className="tab-label">{tab.label}</span>
+            {tab.label}
           </button>
         ))}
       </nav>
 
       <main className="app-content">
         {catalogError && (
-          <div className="error-message">
-            ⚠ Could not load the course catalog from {API}. Course search, the
-            prerequisite map, and recommendations need the backend to be running.
+          <div className="error-message" role="alert">
+            <Icon name="alert" />
+            <span>
+              Could not load the course catalog from {API}. Course search, the
+              prerequisite map, and recommendations need the backend to be running.
+            </span>
           </div>
         )}
 
         {loading && (
-          <div className="loading-overlay">
+          <div className="loading-overlay" role="status">
             <div className="spinner" />
             <p>Generating recommendations…</p>
           </div>

@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import './PrerequisiteVisualization.css';
+import Icon from './Icon';
 
 const PrerequisiteVisualization = ({ completedCourses, courseCatalog }) => {
   const [selectedCourse, setSelectedCourse] = useState(null);
@@ -51,7 +52,7 @@ const PrerequisiteVisualization = ({ completedCourses, courseCatalog }) => {
     { level: 4, label: 'Specialization' },
   ];
 
-  const statusIcon = { completed: '✓', available: '→', locked: '⏸' };
+  const statusIcon = { completed: 'check', available: 'arrow', locked: 'lock' };
 
   const stats = useMemo(() => ({
     completed: coursesData.filter((c) => c.status === 'completed').length,
@@ -64,7 +65,9 @@ const PrerequisiteVisualization = ({ completedCourses, courseCatalog }) => {
       <div className="viz-header">
         <h2>Prerequisites Map</h2>
         <p className="subtitle">
-          {stats.completed} completed · {stats.available} available · {stats.total} total courses
+          {stats.total === 0
+            ? 'Courses appear here once the catalog loads.'
+            : `${stats.completed} completed, ${stats.available} available, ${stats.total} total courses`}
         </p>
       </div>
 
@@ -72,7 +75,9 @@ const PrerequisiteVisualization = ({ completedCourses, courseCatalog }) => {
         {majors.map((m) => (
           <button
             key={m}
+            type="button"
             className={`filter-btn ${majorFilter === m ? 'active' : ''}`}
+            aria-pressed={majorFilter === m}
             onClick={() => setMajorFilter(m)}
           >
             {m}
@@ -107,20 +112,23 @@ const PrerequisiteVisualization = ({ completedCourses, courseCatalog }) => {
               </div>
               <div className="courses-row">
                 {lvCourses.map((course) => (
-                  <div
+                  <button
                     key={course.code}
+                    type="button"
                     className={`course-node ${course.status} ${selectedCourse === course.code ? 'selected' : ''}`}
+                    aria-pressed={selectedCourse === course.code}
+                    aria-label={`${course.code}, ${course.name}, ${course.status}`}
                     onClick={() => setSelectedCourse(selectedCourse === course.code ? null : course.code)}
                   >
-                    <div className="course-icon">{statusIcon[course.status]}</div>
-                    <div className="course-code">{course.code}</div>
-                    <div className="course-name">{course.name}</div>
+                    <span className="course-icon"><Icon name={statusIcon[course.status]} /></span>
+                    <span className="course-code">{course.code}</span>
+                    <span className="course-name">{course.name}</span>
                     {course.prerequisites.length > 0 && (
-                      <div className="prerequisites-count">
+                      <span className="prerequisites-count">
                         {course.prerequisites.length} prereq{course.prerequisites.length > 1 ? 's' : ''}
-                      </div>
+                      </span>
                     )}
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
@@ -136,7 +144,9 @@ const PrerequisiteVisualization = ({ completedCourses, courseCatalog }) => {
           <div className="course-details-panel">
             <div className="panel-header">
               <h3>{course.code}: {course.name}</h3>
-              <button onClick={() => setSelectedCourse(null)}>×</button>
+              <button type="button" aria-label="Close course details" onClick={() => setSelectedCourse(null)}>
+                <Icon name="close" />
+              </button>
             </div>
             <div className="panel-content">
               <div className="detail-section">
@@ -147,19 +157,18 @@ const PrerequisiteVisualization = ({ completedCourses, courseCatalog }) => {
               </div>
               <div className="detail-section">
                 <h4>Description</h4>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                  {course.description || 'No description'} · {course.credits} credits · {course.major}
-                </p>
+                <p className="detail-text">{course.description || 'No description'}</p>
+                <p className="detail-text detail-meta">{course.credits} credits, {course.major}</p>
               </div>
               <div className="detail-section">
                 <h4>Prerequisites</h4>
                 {course.prerequisites.length === 0 ? (
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>None required</p>
+                  <p className="detail-text detail-meta">None required</p>
                 ) : (
                   <ul>
                     {course.prerequisites.map((p) => (
                       <li key={p} className={completedCourses.includes(p) ? 'completed' : 'not-completed'}>
-                        {p} {completedCourses.includes(p) ? '✓' : '✗'}
+                        {p}, {completedCourses.includes(p) ? 'completed' : 'not completed'}
                       </li>
                     ))}
                   </ul>
@@ -168,12 +177,14 @@ const PrerequisiteVisualization = ({ completedCourses, courseCatalog }) => {
               <div className="detail-section">
                 <h4>Unlocks ({unlocks.length})</h4>
                 {unlocks.length === 0 ? (
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>No courses unlocked</p>
+                  <p className="detail-text detail-meta">No courses unlocked</p>
                 ) : (
                   <ul>
                     {unlocks.map((u) => (
-                      <li key={u.code} style={{ cursor: 'pointer' }} onClick={() => setSelectedCourse(u.code)}>
-                        {u.code}: {u.name}
+                      <li key={u.code} className="unlock-item">
+                        <button type="button" onClick={() => setSelectedCourse(u.code)}>
+                          {u.code}: {u.name}
+                        </button>
                       </li>
                     ))}
                   </ul>

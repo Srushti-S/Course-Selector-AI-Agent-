@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import './RecommendationPanel.css';
+import Icon from './Icon';
 
 const RecommendationPanel = ({ recommendations, source, onAddToPlan }) => {
   const [expandedCard, setExpandedCard] = useState(null);
@@ -8,9 +9,8 @@ const RecommendationPanel = ({ recommendations, source, onAddToPlan }) => {
     return (
       <div className="recommendation-panel">
         <div className="empty-recommendations">
-          <div className="empty-icon">◈</div>
           <h3>No Recommendations Yet</h3>
-          <p>Complete your student profile and click "Get AI Recommendations" to see personalized course suggestions.</p>
+          <p>Complete your student profile and click “Get AI Recommendations” to see personalized course suggestions.</p>
         </div>
       </div>
     );
@@ -24,10 +24,10 @@ const RecommendationPanel = ({ recommendations, source, onAddToPlan }) => {
       <div className="panel-header">
         <h2>Recommended Courses</h2>
         <p className="subtitle">
-          {recommendations.length} courses · {totalCredits} credits · {highCount} high priority
+          {recommendations.length} courses, {totalCredits} credits, {highCount} high priority
         </p>
         <div className="ai-badge">
-          {source === 'ai' ? '◈ AI-Generated' : '⚙ Rule-Based Engine'}
+          {source === 'ai' ? 'AI-generated' : 'Rule-based engine'}
         </div>
       </div>
 
@@ -43,23 +43,26 @@ const RecommendationPanel = ({ recommendations, source, onAddToPlan }) => {
                 <p>{rec.courseName}</p>
               </div>
               <span className={`priority-badge priority-${rec.priority}`}>
-                {rec.priority}
+                {rec.priority} priority
               </span>
             </div>
 
-            <div className="course-meta-row">
+            <dl className="course-meta-row">
               <div className="meta-item">
-                Credits: <span className="value">{rec.credits}</span>
+                <dt>Credits:</dt>
+                <dd className="value">{rec.credits}</dd>
               </div>
               <div className="meta-item">
-                Semester: <span className="value">{rec.semester}</span>
+                <dt>Semester:</dt>
+                <dd className="value">{rec.semester}</dd>
               </div>
               {rec.prerequisites && rec.prerequisites !== 'None' && (
                 <div className="meta-item">
-                  Prereqs: <span className="value">{rec.prerequisites}</span>
+                  <dt>Prereqs:</dt>
+                  <dd className="value">{rec.prerequisites}</dd>
                 </div>
               )}
-            </div>
+            </dl>
 
             <div className="ai-reasoning">
               <h4>Why this course</h4>
@@ -81,7 +84,7 @@ const RecommendationPanel = ({ recommendations, source, onAddToPlan }) => {
                       {rec.level === 3 && 'Advanced'}
                       {rec.level === 4 && 'Specialization'}
                       {!rec.level && 'N/A'}
-                      {rec.major && ` · ${rec.major}`}
+                      {rec.major && `, ${rec.major}`}
                     </p>
                   </div>
                 </div>
@@ -89,11 +92,16 @@ const RecommendationPanel = ({ recommendations, source, onAddToPlan }) => {
             )}
 
             <div className="card-actions">
-              <button className="btn-ghost" onClick={() => setExpandedCard(expandedCard === rec.id ? null : rec.id)}>
+              <button
+                type="button"
+                className="btn-ghost"
+                aria-expanded={expandedCard === rec.id}
+                onClick={() => setExpandedCard(expandedCard === rec.id ? null : rec.id)}
+              >
                 {expandedCard === rec.id ? 'Less' : 'More'}
               </button>
-              <button className="btn-primary" style={{ padding: '8px 16px', fontSize: '0.85rem' }} onClick={() => onAddToPlan(rec)}>
-                + Add to Plan
+              <button type="button" className="btn-primary" onClick={() => onAddToPlan(rec)}>
+                <Icon name="plus" size={14} /> Add to Plan
               </button>
             </div>
           </div>

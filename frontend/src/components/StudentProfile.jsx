@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import './StudentProfile.css';
+import Icon from './Icon';
 
 const DEFAULT_MAJORS = [
   'Computer Science', 'Data Science', 'Software Engineering',
@@ -69,15 +70,22 @@ const StudentProfile = ({ profile, setProfile, onGetRecommendations, courseCatal
       <h2>Student Profile</h2>
       <p className="subtitle">Fill out your info to get personalized course recommendations</p>
 
-      {error && <div className="error-message">⚠ {error} — Could not reach the backend. Check that it is running.</div>}
+      {error && (
+        <div className="error-message" role="alert">
+          <Icon name="alert" />
+          <span>{error}. Could not reach the backend. Check that it is running.</span>
+        </div>
+      )}
 
       <div className="profile-form">
         <div className="form-section">
           <h3>Basic Information</h3>
           <div className="form-group">
-            <label>Full Name</label>
+            <label htmlFor="profile-name">Full Name</label>
             <input
+              id="profile-name"
               type="text"
+              autoComplete="name"
               value={profile.name}
               onChange={(e) => setProfile({ ...profile, name: e.target.value })}
               placeholder="Your full name"
@@ -85,8 +93,9 @@ const StudentProfile = ({ profile, setProfile, onGetRecommendations, courseCatal
           </div>
           <div className="form-row">
             <div className="form-group">
-              <label>Major</label>
+              <label htmlFor="profile-major">Major</label>
               <select
+                id="profile-major"
                 value={profile.major}
                 onChange={(e) => setProfile({ ...profile, major: e.target.value })}
               >
@@ -97,8 +106,9 @@ const StudentProfile = ({ profile, setProfile, onGetRecommendations, courseCatal
               </select>
             </div>
             <div className="form-group">
-              <label>Year</label>
+              <label htmlFor="profile-year">Year</label>
               <select
+                id="profile-year"
                 value={profile.year}
                 onChange={(e) => setProfile({ ...profile, year: e.target.value })}
               >
@@ -109,47 +119,56 @@ const StudentProfile = ({ profile, setProfile, onGetRecommendations, courseCatal
             </div>
           </div>
           <div className="form-group">
-            <label>Credits per Semester</label>
+            <label htmlFor="profile-credits">Credits per Semester</label>
             <input
+              id="profile-credits"
               type="number"
               min="12"
               max="21"
+              aria-describedby="profile-credits-help"
               value={profile.creditHoursPerSemester}
               onChange={(e) =>
                 setProfile({ ...profile, creditHoursPerSemester: parseInt(e.target.value) || 15 })
               }
             />
-            <small>Typically 12–18 credit hours</small>
+            <small id="profile-credits-help">Typically 12 to 18 credit hours</small>
           </div>
         </div>
 
         <div className="form-section">
-          <h3>Completed Courses</h3>
-          <div className="course-select-wrapper" ref={dropdownRef}>
+          <h3 id="completed-heading">Completed Courses</h3>
+          <div
+            className="course-select-wrapper"
+            ref={dropdownRef}
+            onKeyDown={(e) => e.key === 'Escape' && setShowDropdown(false)}
+          >
             <input
               className="course-search-input"
               type="text"
+              aria-labelledby="completed-heading"
               value={courseQuery}
               onChange={(e) => {
                 setCourseQuery(e.target.value);
                 setShowDropdown(true);
               }}
               onFocus={() => setShowDropdown(true)}
-              placeholder="Search courses — e.g. CS101 or Data Structures"
+              placeholder="Search courses, e.g. CS101 or Data Structures"
             />
             {showDropdown && courseQuery && filteredCourses.length > 0 && (
-              <div className="course-dropdown">
+              <ul className="course-dropdown">
                 {filteredCourses.slice(0, 8).map((c) => (
-                  <div
-                    key={c.code}
-                    className="course-dropdown-item"
-                    onClick={() => addCourse(c.code)}
-                  >
-                    <span className="code">{c.code}</span>
-                    <span>{c.name}</span>
-                  </div>
+                  <li key={c.code}>
+                    <button
+                      type="button"
+                      className="course-dropdown-item"
+                      onClick={() => addCourse(c.code)}
+                    >
+                      <span className="code">{c.code}</span>
+                      <span>{c.name}</span>
+                    </button>
+                  </li>
                 ))}
-              </div>
+              </ul>
             )}
           </div>
           <div className="tags-container">
@@ -159,7 +178,9 @@ const StudentProfile = ({ profile, setProfile, onGetRecommendations, courseCatal
               profile.completedCourses.map((course, i) => (
                 <span key={i} className="tag">
                   {course}
-                  <button onClick={() => removeCourse(i)}>×</button>
+                  <button type="button" aria-label={`Remove ${course}`} onClick={() => removeCourse(i)}>
+                    <Icon name="close" size={12} />
+                  </button>
                 </span>
               ))
             )}
@@ -172,25 +193,27 @@ const StudentProfile = ({ profile, setProfile, onGetRecommendations, courseCatal
             {interestSuggestions
               .filter((s) => !profile.interests.includes(s))
               .map((s) => (
-                <span
+                <button
                   key={s}
-                  className="tag interest-tag"
-                  style={{ cursor: 'pointer', opacity: 0.7 }}
+                  type="button"
+                  className="tag interest-tag suggestion-tag"
                   onClick={() => addInterest(s)}
                 >
-                  + {s}
-                </span>
+                  <Icon name="plus" size={12} />
+                  {s}
+                </button>
               ))}
           </div>
           <div className="input-with-button">
             <input
               type="text"
+              aria-label="Custom interest"
               value={newInterest}
               onChange={(e) => setNewInterest(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && addInterest()}
               placeholder="Or type a custom interest"
             />
-            <button className="btn-add" onClick={() => addInterest()}>
+            <button type="button" className="btn-add" onClick={() => addInterest()}>
               Add
             </button>
           </div>
@@ -198,30 +221,41 @@ const StudentProfile = ({ profile, setProfile, onGetRecommendations, courseCatal
             {profile.interests.map((interest, i) => (
               <span key={i} className="tag interest-tag">
                 {interest}
-                <button onClick={() => removeInterest(i)}>×</button>
+                <button type="button" aria-label={`Remove ${interest}`} onClick={() => removeInterest(i)}>
+                  <Icon name="close" size={12} />
+                </button>
               </span>
             ))}
           </div>
         </div>
 
         <div className="form-section">
-          <h3>Career Goals</h3>
+          <h3 id="career-heading">Career Goals</h3>
           <div className="form-group">
             <textarea
+              aria-labelledby="career-heading"
               value={profile.careerGoals}
               onChange={(e) => setProfile({ ...profile, careerGoals: e.target.value })}
-              placeholder="Describe your career aspirations — e.g. become a machine learning engineer at a top tech company"
+              placeholder="Describe your career aspirations, e.g. become a machine learning engineer at a top tech company"
               rows="4"
             />
           </div>
         </div>
 
         <div className="form-actions">
-          <button className="btn-primary" onClick={onGetRecommendations} disabled={!isComplete}>
-            ◈ Get AI Recommendations
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={onGetRecommendations}
+            disabled={!isComplete}
+            aria-describedby={!isComplete ? 'profile-incomplete' : undefined}
+          >
+            Get AI Recommendations
           </button>
           {!isComplete && (
-            <p className="validation-message">Complete name, major, and career goals to continue</p>
+            <p className="validation-message" id="profile-incomplete">
+              Complete name, major, and career goals to continue
+            </p>
           )}
         </div>
       </div>
